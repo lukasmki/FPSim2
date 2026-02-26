@@ -53,12 +53,6 @@ jobs:
             bitness: 64
             python: 314
             platform_id: win_amd64
-          # Windows 64 bit free-threaded
-          - os: windows-latest
-            bitness: 64
-            python: 314t
-            platform_id: win_amd64
-            free_threaded: true
 
           # Linux 64 bit manylinux_2_28
           - os: ubuntu-latest
@@ -81,13 +75,6 @@ jobs:
             python: 314
             platform_id: manylinux_x86_64
             manylinux_image: manylinux_2_28
-          # Linux 64 bit manylinux_2_28 free-threaded
-          - os: ubuntu-latest
-            bitness: 64
-            python: 314t
-            platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
-            free_threaded: true
 
           # MacOS x86_64
           - os: macos-latest
@@ -106,12 +93,6 @@ jobs:
             bitness: 64
             python: 314
             platform_id: macosx_x86_64
-          # MacOS x86_64 free-threaded
-          - os: macos-latest
-            bitness: 64
-            python: 314t
-            platform_id: macosx_x86_64
-            free_threaded: true
 
           # MacOS arm64
           - os: macos-latest
@@ -130,12 +111,6 @@ jobs:
             bitness: 64
             python: 314
             platform_id: macosx_arm64
-          # MacOS arm64 free-threaded
-          - os: macos-latest
-            bitness: 64
-            python: 314t
-            platform_id: macosx_arm64
-            free_threaded: true
 
 
     steps:
