@@ -147,7 +147,7 @@ jobs:
         CIBW_ARCHS_MACOS: x86_64 arm64
         CIBW_ARCHS_WINDOWS: AMD64
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
-        CIBW_FREE_THREADED_SUPPORT: ${{ matrix.free_threaded || false }}
+        CIBW_ENABLE: ${{ matrix.free_threaded && 'cpython-freethreading' || '' }}
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "pytest {project}/tests"
         CIBW_BUILD_VERBOSITY: 1
