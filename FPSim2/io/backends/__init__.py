@@ -1,2 +1,8 @@
 from .pytables import PyTablesStorageBackend
-from .sqla import SqlaStorageBackend
+
+try:
+    from .sqla import SqlaStorageBackend
+except ImportError:
+    SqlaStorageBackend = None
+
+__all__ = ["PyTablesStorageBackend", "SqlaStorageBackend"]
