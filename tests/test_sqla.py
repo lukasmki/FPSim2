@@ -1,9 +1,12 @@
-from FPSim2.io.backends.sqla import create_db_table
-from FPSim2 import FPSim2Engine
 import tables as tb
 import pytest
 import sys
 import os
+
+pytest.importorskip("sqlalchemy")
+
+from FPSim2.io.backends.sqla import create_db_table
+from FPSim2 import FPSim2Engine
 
 try:
     import psycopg2, MySQLdb

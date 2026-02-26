@@ -1,2 +1,6 @@
 from .backends.pytables import create_db_file
-from .backends.sqla import create_db_table
+
+try:
+    from .backends.sqla import create_db_table
+except ImportError:
+    create_db_table = None
