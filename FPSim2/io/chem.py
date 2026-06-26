@@ -3,6 +3,7 @@ from FPSim2.FPSim2lib.utils import BitStrToIntList, PyPopcount
 from collections.abc import Iterable
 from rdkit.Chem import rdFingerprintGenerator
 from rdkit.Chem import rdMolDescriptors
+from rdkit.Chem import rdChemReactions
 from rdkit.DataStructs import ExplicitBitVect
 from rdkit import Chem
 import numpy as np
@@ -79,11 +80,105 @@ FP_FUNC_DEFAULTS = {
 }
 
 
+def _make_rxn_fp_params(fp_type_enum, fp_size):
+    params = rdChemReactions.ReactionFingerprintParams()
+    params.fpType = fp_type_enum
+    params.fpSize = fp_size
+    return params
+
+
+RXN_FP_FUNCS = {
+    "RDKitPattern": lambda rxn, **kwargs: rdChemReactions.CreateStructuralFingerprintForReaction(
+        rxn,
+        _make_rxn_fp_params(rdChemReactions.FingerprintType.PatternFP, kwargs.get("fpSize", 2048)),
+    ),
+}
+
+RXN_FP_FUNC_DEFAULTS = {
+    "RDKitPattern": {"fpSize": 2048},
+}
+
+
 def partial_sanitization(mol):
     # https://rdkit.blogspot.com/2016/09/avoiding-unnecessary-work-and.html
     mol.UpdatePropertyCache(strict=False)
     Chem.FastFindRings(mol)
     return mol
+
+
+def build_rxn_fp(rxn, fp_type, fp_params, rxn_id):
+    efp = RXN_FP_FUNCS[fp_type](rxn, **fp_params)
+    return process_fp(efp, rxn_id)
+
+
+def load_reaction(query):
+    if isinstance(query, rdChemReactions.ChemicalReaction):
+        return query
+    return rdChemReactions.ReactionFromSmarts(query)
+
+
+def sma_rxn_supplier(
+    filename: str,
+) -> IterableType[Tuple[int, rdChemReactions.ChemicalReaction]]:
+    """Generator that reads reaction SMARTS from a .sma file.
+
+    One reaction SMARTS per line; optional integer ID as last whitespace-separated
+    token. If absent, 1-based line number is used. Blank lines and unparseable
+    reactions are silently skipped.
+    """
+    with open(filename, "r") as f:
+        for lineno, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.rsplit(None, 1)
+            if len(parts) == 2:
+                try:
+                    rxn_id = int(parts[1])
+                    smarts = parts[0]
+                except ValueError:
+                    raise Exception("FPSim2 only supports integer ids for reactions")
+            else:
+                smarts = parts[0]
+                rxn_id = lineno
+            try:
+                rxn = rdChemReactions.ReactionFromSmarts(smarts)
+            except Exception:
+                continue
+            if rxn is None:
+                continue
+            yield rxn_id, rxn
+
+
+def it_rxn_supplier(
+    iterable: IterableType,
+) -> IterableType[Tuple[int, rdChemReactions.ChemicalReaction]]:
+    """Generator that reads from an iterable of (smarts_or_rxn, rxn_id) tuples."""
+    for rxn_input, rxn_id in iterable:
+        try:
+            rxn_id = int(rxn_id)
+        except ValueError:
+            raise Exception("FPSim2 only supports integer ids for reactions")
+        if isinstance(rxn_input, rdChemReactions.ChemicalReaction):
+            rxn = rxn_input
+        else:
+            try:
+                rxn = rdChemReactions.ReactionFromSmarts(rxn_input)
+            except Exception:
+                continue
+        if rxn is None:
+            continue
+        yield rxn_id, rxn
+
+
+def get_rxn_supplier(io_source: Any):
+    """Returns a reaction supplier depending on object type and file extension."""
+    if isinstance(io_source, str) and io_source.endswith(".sma"):
+        return sma_rxn_supplier
+    elif isinstance(io_source, Iterable):
+        return it_rxn_supplier
+    else:
+        raise Exception("Invalid input for reaction database")
 
 
 def rdmol_to_efp(

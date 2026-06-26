@@ -2,10 +2,13 @@ from typing import Any, Iterable as IterableType, Dict, List, Tuple, Union
 from .base import BaseStorageBackend
 from ..chem import (
     build_fp,
+    build_rxn_fp,
     get_mol_supplier,
+    get_rxn_supplier,
     get_fp_length,
     it_mol_supplier,
     FP_FUNC_DEFAULTS,
+    RXN_FP_FUNC_DEFAULTS,
     RDKIT_PARSE_FUNCS,
 )
 import tables as tb
@@ -88,6 +91,72 @@ def create_db_file(
         )
         for mol_id, rdmol in iterable:
             fp = build_fp(rdmol, fp_type, fp_params, mol_id)
+            fps.append(fp)
+            if len(fps) == BATCH_WRITE_SIZE:
+                fps_table.append(fps)
+                fps = []
+        if fps:
+            fps_table.append(fps)
+
+        fps_table.cols.popcnt.create_index(kind="full")
+
+    if sort_by_popcnt:
+        sort_db_file(filename)
+
+
+def create_reaction_db_file(
+    rxns_source: Union[str, IterableType],
+    filename: str,
+    fp_type: str = "RDKitPattern",
+    fp_params: dict = {},
+    sort_by_popcnt: bool = True,
+) -> None:
+    """Creates an HDF5 fingerprint database from reaction SMARTS.
+
+    Parameters
+    ----------
+    rxns_source : str or iterable
+        .sma filename or iterable of (smarts_or_rxn, rxn_id) tuples.
+    filename : str
+        Output HDF5 filename.
+    fp_type : str
+        Reaction fingerprint type. Default 'RDKitPattern'.
+    fp_params : dict
+        Fingerprint parameters. If empty, defaults for fp_type are used.
+    sort_by_popcnt : bool
+        Whether to sort the DB by popcount. Default True.
+    """
+    if fp_type not in RXN_FP_FUNC_DEFAULTS:
+        raise ValueError(f"Unsupported fp_type: {fp_type}")
+
+    if not fp_params:
+        fp_params = RXN_FP_FUNC_DEFAULTS[fp_type]
+    else:
+        if "fpSize" not in fp_params:
+            if "fpSize" in RXN_FP_FUNC_DEFAULTS[fp_type]:
+                fp_params["fpSize"] = RXN_FP_FUNC_DEFAULTS[fp_type]["fpSize"]
+
+    supplier = get_rxn_supplier(rxns_source)
+    fp_length = get_fp_length(fp_type, fp_params)
+    filters = tb.Filters(complib="blosc2", complevel=9, fletcher32=False)
+
+    with tb.open_file(filename, mode="w") as fp_file:
+        particle = create_schema(fp_length)
+        fps_table = fp_file.create_table(
+            fp_file.root, "fps", particle, "Table storing fps", filters=filters
+        )
+
+        param_table = fp_file.create_vlarray(
+            fp_file.root, "config", atom=tb.ObjectAtom()
+        )
+        param_table.append(fp_type)
+        param_table.append(fp_params)
+        param_table.append(rdkit.__version__)
+        param_table.append(__version__)
+
+        fps = []
+        for rxn_id, rxn in supplier(rxns_source):
+            fp = build_rxn_fp(rxn, fp_type, fp_params, rxn_id)
             fps.append(fp)
             if len(fps) == BATCH_WRITE_SIZE:
                 fps_table.append(fps)

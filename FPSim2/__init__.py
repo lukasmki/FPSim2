@@ -1,4 +1,5 @@
 from .FPSim2 import FPSim2Engine
+from .FPSim2Reactions import ReactionEngine
 
 try:
     from .FPSim2Cuda import FPSim2CudaEngine
