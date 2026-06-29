@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .io.chem import load_molecule, build_fp, process_fp
+from .io.chem import load_molecule, build_fp, process_fp, RDKIT_PARSE_FUNCS
 from .io.backends.pytables import create_schema, get_fp_length
 from .io.backends import PyTablesStorageBackend, SqlaStorageBackend
 from rdkit.DataStructs import ExplicitBitVect
@@ -89,24 +89,35 @@ class BaseEngine(ABC):
         self,
         query: Union[str, ExplicitBitVect, Chem.Mol],
         full_sanitization: bool = True,
+        mol_format: str = None,
     ) -> np.ndarray:
-        """Loads the query fingerprint from SMILES, molblock, InChI or ExplicitBitVect fingerprint.
+        """Loads the query fingerprint from SMILES, SMARTS, molblock, InChI or ExplicitBitVect fingerprint.
 
         Parameters
         ----------
-        query : Union[str, ExplicitBitVect]
-            SMILES, InChi, molblock or fingerprint as ExplicitBitVect.
+        query : Union[str, ExplicitBitVect, Chem.Mol]
+            SMILES, SMARTS, InChI, molblock or fingerprint as ExplicitBitVect.
+        mol_format : str, optional
+            Input format: 'smiles', 'smarts', 'inchi', 'molfile', or 'rdkit'.
+            If None, format is auto-detected from the string content.
 
         Returns
         -------
         query : numpy array
             Numpy array query molecule.
         """
-
         if isinstance(query, ExplicitBitVect):
             fp = process_fp(query, 0)
         elif isinstance(query, Chem.Mol):
             fp = build_fp(query, self.fp_type, self.fp_params, 0)
+        elif mol_format is not None:
+            if mol_format not in RDKIT_PARSE_FUNCS:
+                raise ValueError(
+                    f"Unsupported mol_format: '{mol_format}'. "
+                    f"Available: {list(RDKIT_PARSE_FUNCS.keys())}"
+                )
+            rdmol = RDKIT_PARSE_FUNCS[mol_format](query, full_sanitization)
+            fp = build_fp(rdmol, self.fp_type, self.fp_params, 0)
         else:
             rdmol = load_molecule(query, full_sanitization=full_sanitization)
             fp = build_fp(rdmol, self.fp_type, self.fp_params, 0)

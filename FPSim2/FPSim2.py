@@ -156,6 +156,7 @@ class FPSim2Engine(BaseEngine):
         n_workers: int = 1,
         on_disk: bool = False,
         chunk_size: int = None,
+        mol_format: str = None,
     ) -> np.ndarray:
         if not on_disk and self.fps is None:
             raise Exception(
@@ -176,7 +177,7 @@ class FPSim2Engine(BaseEngine):
             "substructure": (SubstructureScreenout, ()),
         }
 
-        np_query = self.load_query(query, full_sanitization=full_sanitization)
+        np_query = self.load_query(query, full_sanitization=full_sanitization, mol_format=mol_format)
         search_func, args = search_funcs[search_type]
 
         # Get bounds
@@ -226,6 +227,7 @@ class FPSim2Engine(BaseEngine):
         metric: str = "tanimoto",
         full_sanitization: bool = True,
         n_workers=1,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
@@ -234,6 +236,7 @@ class FPSim2Engine(BaseEngine):
             threshold=threshold,
             n_workers=n_workers,
             full_sanitization=full_sanitization,
+            mol_format=mol_format,
         )
 
     def on_disk_similarity(
@@ -244,6 +247,7 @@ class FPSim2Engine(BaseEngine):
         full_sanitization: bool = True,
         n_workers: int = 1,
         chunk_size: int = 0,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
@@ -254,6 +258,7 @@ class FPSim2Engine(BaseEngine):
             on_disk=True,
             chunk_size=chunk_size,
             full_sanitization=full_sanitization,
+            mol_format=mol_format,
         )
 
     def tversky(
@@ -264,6 +269,7 @@ class FPSim2Engine(BaseEngine):
         b: float,
         full_sanitization: bool = True,
         n_workers: int = 1,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
@@ -273,6 +279,7 @@ class FPSim2Engine(BaseEngine):
             b=b,
             full_sanitization=full_sanitization,
             n_workers=n_workers,
+            mol_format=mol_format,
         )
 
     def on_disk_tversky(
@@ -284,6 +291,7 @@ class FPSim2Engine(BaseEngine):
         full_sanitization: bool = True,
         n_workers: int = 1,
         chunk_size: int = None,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
@@ -295,6 +303,7 @@ class FPSim2Engine(BaseEngine):
             n_workers=n_workers,
             on_disk=True,
             chunk_size=chunk_size,
+            mol_format=mol_format,
         )
 
     def substructure(
@@ -302,12 +311,14 @@ class FPSim2Engine(BaseEngine):
         query: Union[str, ExplicitBitVect, Chem.Mol],
         full_sanitization: bool = True,
         n_workers: int = 1,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
             "substructure",
             n_workers=n_workers,
             full_sanitization=full_sanitization,
+            mol_format=mol_format,
         )
 
     def on_disk_substructure(
@@ -316,6 +327,7 @@ class FPSim2Engine(BaseEngine):
         full_sanitization: bool = True,
         n_workers: int = 1,
         chunk_size: int = None,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
@@ -324,6 +336,7 @@ class FPSim2Engine(BaseEngine):
             n_workers=n_workers,
             on_disk=True,
             chunk_size=chunk_size,
+            mol_format=mol_format,
         )
 
     def top_k(
@@ -334,6 +347,7 @@ class FPSim2Engine(BaseEngine):
         metric="tanimoto",
         full_sanitization: bool = True,
         n_workers=1,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
@@ -343,6 +357,7 @@ class FPSim2Engine(BaseEngine):
             k=k,
             full_sanitization=full_sanitization,
             n_workers=n_workers,
+            mol_format=mol_format,
         )
 
     def on_disk_top_k(
@@ -354,6 +369,7 @@ class FPSim2Engine(BaseEngine):
         full_sanitization: bool = True,
         n_workers=1,
         chunk_size: int = None,
+        mol_format: str = None,
     ) -> np.ndarray:
         return self._search(
             query,
@@ -365,6 +381,7 @@ class FPSim2Engine(BaseEngine):
             n_workers=n_workers,
             on_disk=True,
             chunk_size=chunk_size,
+            mol_format=mol_format,
         )
 
     def symmetric_distance_matrix(

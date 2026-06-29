@@ -20,6 +20,7 @@ RDKIT_PARSE_FUNCS = {
     "inchi": Chem.MolFromInchi,
     "molfile": Chem.MolFromMolBlock,
     "rdkit": lambda x, s: x,
+    "smarts": lambda x, s: Chem.MolFromSmarts(x),
 }
 
 FP_FUNCS = {
@@ -379,17 +380,21 @@ def sdf_mol_supplier(
     else:
         suppl = Chem.ForwardSDMolSupplier(filename)
 
-    for rdmol in suppl:
+    mol_id_prop = kwargs.get("mol_id_prop")
+    for mol_index, rdmol in enumerate(suppl, start=1):
         if not rdmol:
             continue
         if not full_sanitization:
             rdmol = partial_sanitization(rdmol)
             if not rdmol:
                 continue
-        try:
-            mol_id = int(rdmol.GetProp(kwargs["mol_id_prop"]))
-        except ValueError:
-            raise Exception("FPSim2 only supports integer ids for molecules")
+        if mol_id_prop is None:
+            mol_id = mol_index
+        else:
+            try:
+                mol_id = int(rdmol.GetProp(mol_id_prop))
+            except ValueError:
+                raise Exception("FPSim2 only supports integer ids for molecules")
         yield mol_id, rdmol
 
 

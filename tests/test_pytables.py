@@ -80,6 +80,16 @@ def test_create_db_file_list():
     assert fp_params["fpSize"] == FP_PARAMS["fpSize"]
     assert fpe.fps.shape[0] == 3
 
+def test_create_db_file_bbs_sdf():
+    in_file = os.path.join(TESTS_DIR, "data/bbs.sdf")
+    out_file = os.path.join(TESTS_DIR, "data/bbs.h5")
+    create_db_file(in_file, out_file, None, FP_TYPE, FP_PARAMS, mol_id_prop=None)
+    fpe = FPSim2Engine(out_file, storage_backend="pytables")
+    assert fpe.fps.shape[0] > 1000
+    assert fpe.fp_type == FP_TYPE
+    os.remove(out_file)
+
+
 def test_calc_popcnt_bins():
     in_file = os.path.join(TESTS_DIR, "data/test.h5")
     fpe = FPSim2Engine(

@@ -20,6 +20,7 @@ class ReactionEngine(FPSim2Engine):
         self,
         query: Union[str, ExplicitBitVect, "rdChemReactions.ChemicalReaction"],
         full_sanitization: bool = True,
+        mol_format: str = None,
     ) -> np.ndarray:
         """Loads the query fingerprint from a reaction SMARTS string,
         a ChemicalReaction object, or an ExplicitBitVect.
