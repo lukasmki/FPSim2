@@ -30,13 +30,13 @@ def test_sma_rxn_supplier_count():
 
 def test_sma_rxn_supplier_ids_default_to_lineno():
     rxns = list(sma_rxn_supplier(SMA_FILE))
-    ids = [rxn_id for rxn_id, _ in rxns]
+    ids = [rxn_id for rxn_id, *_ in rxns]
     assert ids[0] == 1
     assert all(isinstance(i, int) for i in ids)
 
 
 def test_sma_rxn_supplier_yields_chemicalreaction():
-    for rxn_id, rxn in sma_rxn_supplier(SMA_FILE):
+    for rxn_id, rxn, smarts in sma_rxn_supplier(SMA_FILE):
         assert isinstance(rxn, rdChemReactions.ChemicalReaction)
 
 
@@ -55,16 +55,19 @@ def test_it_rxn_supplier_smarts():
     ]
     rxns = list(it_rxn_supplier(data))
     assert len(rxns) == 2
-    assert rxns[0][0] == 1
-    assert isinstance(rxns[0][1], rdChemReactions.ChemicalReaction)
+    rxn_id, rxn, smarts = rxns[0]
+    assert rxn_id == 1
+    assert isinstance(rxn, rdChemReactions.ChemicalReaction)
+    assert smarts == QUERY_SMARTS
 
 
 def test_it_rxn_supplier_rxn_object():
     rxn_obj = rdChemReactions.ReactionFromSmarts(QUERY_SMARTS)
     rxns = list(it_rxn_supplier([(rxn_obj, 99)]))
     assert len(rxns) == 1
-    assert rxns[0][0] == 99
-    assert isinstance(rxns[0][1], rdChemReactions.ChemicalReaction)
+    rxn_id, rxn, smarts = rxns[0]
+    assert rxn_id == 99
+    assert isinstance(rxn, rdChemReactions.ChemicalReaction)
 
 
 def test_it_rxn_supplier_invalid_id_raises():
@@ -78,7 +81,7 @@ def test_it_rxn_supplier_invalid_id_raises():
 @pytest.mark.incremental
 class TestCreateReactionDB:
     def test_create_reaction_db_file_sma(self):
-        create_reaction_db_file(SMA_FILE, RXN_H5)
+        create_reaction_db_file(SMA_FILE, RXN_H5, store_strings=True)
         engine = ReactionEngine(RXN_H5)
         assert 9 <= engine.fps.shape[0] <= 10
         assert engine.fp_type == "RDKitPattern"
@@ -109,6 +112,12 @@ class TestCreateReactionDB:
         engine = ReactionEngine(RXN_H5)
         popcnts = engine.fps[:, -1]
         assert (popcnts[:-1] <= popcnts[1:]).all()
+
+    def test_get_string_preserves_original_smarts(self):
+        engine = ReactionEngine(RXN_H5)
+        with open(SMA_FILE) as f:
+            first_smarts = f.readline().strip()
+        assert engine.get_string(1) == first_smarts
 
 
 # ---- ReactionEngine.load_query() tests ----

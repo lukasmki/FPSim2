@@ -148,12 +148,12 @@ def sma_rxn_supplier(
                 continue
             if rxn is None:
                 continue
-            yield rxn_id, rxn
+            yield rxn_id, rxn, smarts
 
 
 def it_rxn_supplier(
     iterable: IterableType,
-) -> IterableType[Tuple[int, rdChemReactions.ChemicalReaction]]:
+) -> IterableType[Tuple[int, rdChemReactions.ChemicalReaction, str]]:
     """Generator that reads from an iterable of (smarts_or_rxn, rxn_id) tuples."""
     for rxn_input, rxn_id in iterable:
         try:
@@ -162,14 +162,16 @@ def it_rxn_supplier(
             raise Exception("FPSim2 only supports integer ids for reactions")
         if isinstance(rxn_input, rdChemReactions.ChemicalReaction):
             rxn = rxn_input
+            smarts_str = rdChemReactions.ReactionToSmarts(rxn)
         else:
+            smarts_str = rxn_input
             try:
                 rxn = rdChemReactions.ReactionFromSmarts(rxn_input)
             except Exception:
                 continue
         if rxn is None:
             continue
-        yield rxn_id, rxn
+        yield rxn_id, rxn, smarts_str
 
 
 def get_rxn_supplier(io_source: Any):

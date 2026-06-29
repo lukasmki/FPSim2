@@ -176,11 +176,11 @@ def create_reaction_db_file(
 
         fps = []
         strings_map = {}
-        for rxn_id, rxn in supplier(rxns_source):
+        for rxn_id, rxn, smarts_str in supplier(rxns_source):
             fp = build_rxn_fp(rxn, fp_type, fp_params, rxn_id)
             fps.append(fp)
             if store_strings:
-                strings_map[rxn_id] = rdChemReactions.ReactionToSmarts(rxn)
+                strings_map[rxn_id] = smarts_str
             if len(fps) == BATCH_WRITE_SIZE:
                 fps_table.append(fps)
                 fps = []
