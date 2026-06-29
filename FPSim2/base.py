@@ -123,6 +123,32 @@ class BaseEngine(ABC):
             fp = build_fp(rdmol, self.fp_type, self.fp_params, 0)
         return np.array(fp, dtype=np.uint64)
 
+    def get_string(self, mol_id: int) -> str:
+        """Returns the stored canonical SMILES or reaction SMARTS for a given mol_id.
+
+        Only available when the database was created with store_strings=True.
+
+        Parameters
+        ----------
+        mol_id : int
+            The molecule or reaction ID to retrieve.
+
+        Returns
+        -------
+        str
+            Canonical SMILES (molecules) or reaction SMARTS (reactions).
+        """
+        if self.storage.string_ids is None:
+            raise RuntimeError(
+                "Database was not created with store_strings=True. "
+                "Recreate the database to enable string lookup."
+            )
+        idx = int(np.searchsorted(self.storage.string_ids, mol_id))
+        if idx >= len(self.storage.string_ids) or self.storage.string_ids[idx] != mol_id:
+            raise KeyError(f"mol_id {mol_id} not found in string index")
+        with tb.open_file(self.fp_filename, mode="r") as fp_file:
+            return fp_file.root.strings[0][idx]
+
     @abstractmethod
     def similarity(
         self, query_string: str, threshold: float, n_workers=1

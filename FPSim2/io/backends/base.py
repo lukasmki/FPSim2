@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 
 class BaseStorageBackend(ABC):
 
+    string_ids = None  # populated by backends that support store_strings
+
     @staticmethod
     def calc_popcnt_bins(fps: np.ndarray) -> list:
         """Calcs popcount bins.

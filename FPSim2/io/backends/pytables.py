@@ -11,6 +11,8 @@ from ..chem import (
     RXN_FP_FUNC_DEFAULTS,
     RDKIT_PARSE_FUNCS,
 )
+from rdkit.Chem import rdChemReactions
+from rdkit import Chem
 import tables as tb
 import numpy as np
 import rdkit
@@ -21,6 +23,14 @@ from importlib.metadata import version
 __version__ = version("FPSim2")
 
 BATCH_WRITE_SIZE = 32000
+
+
+def _write_string_arrays(fp_file: Any, strings_map: dict) -> None:
+    sorted_ids = sorted(strings_map)
+    sid = fp_file.create_vlarray(fp_file.root, "string_ids", atom=tb.ObjectAtom())
+    sid.append(np.array(sorted_ids, dtype=np.int64))
+    strs = fp_file.create_vlarray(fp_file.root, "strings", atom=tb.ObjectAtom())
+    strs.append([strings_map[i] for i in sorted_ids])
 
 
 def create_schema(fp_length: int) -> Any:
@@ -47,6 +57,7 @@ def create_db_file(
     mol_id_prop: str = "mol_id",
     sort_by_popcnt: bool = True,
     full_sanitization: bool = True,
+    store_strings: bool = False,
 ) -> None:
     is_valid_file = isinstance(mols_source, str) and (
         mols_source.endswith((".smi", ".sdf", ".sdf.gz"))
@@ -83,6 +94,7 @@ def create_db_file(
         param_table.append(__version__)
 
         fps = []
+        strings_map = {}
         iterable = supplier(
             mols_source,
             full_sanitization,
@@ -92,6 +104,8 @@ def create_db_file(
         for mol_id, rdmol in iterable:
             fp = build_fp(rdmol, fp_type, fp_params, mol_id)
             fps.append(fp)
+            if store_strings:
+                strings_map[mol_id] = Chem.MolToSmiles(rdmol)
             if len(fps) == BATCH_WRITE_SIZE:
                 fps_table.append(fps)
                 fps = []
@@ -99,6 +113,9 @@ def create_db_file(
             fps_table.append(fps)
 
         fps_table.cols.popcnt.create_index(kind="full")
+
+        if store_strings and strings_map:
+            _write_string_arrays(fp_file, strings_map)
 
     if sort_by_popcnt:
         sort_db_file(filename)
@@ -110,6 +127,7 @@ def create_reaction_db_file(
     fp_type: str = "RDKitPattern",
     fp_params: dict = {},
     sort_by_popcnt: bool = True,
+    store_strings: bool = False,
 ) -> None:
     """Creates an HDF5 fingerprint database from reaction SMARTS.
 
@@ -125,6 +143,8 @@ def create_reaction_db_file(
         Fingerprint parameters. If empty, defaults for fp_type are used.
     sort_by_popcnt : bool
         Whether to sort the DB by popcount. Default True.
+    store_strings : bool
+        Whether to store canonical reaction SMARTS in the HDF5 for lookup. Default False.
     """
     if fp_type not in RXN_FP_FUNC_DEFAULTS:
         raise ValueError(f"Unsupported fp_type: {fp_type}")
@@ -155,9 +175,12 @@ def create_reaction_db_file(
         param_table.append(__version__)
 
         fps = []
+        strings_map = {}
         for rxn_id, rxn in supplier(rxns_source):
             fp = build_rxn_fp(rxn, fp_type, fp_params, rxn_id)
             fps.append(fp)
+            if store_strings:
+                strings_map[rxn_id] = rdChemReactions.ReactionToSmarts(rxn)
             if len(fps) == BATCH_WRITE_SIZE:
                 fps_table.append(fps)
                 fps = []
@@ -165,6 +188,9 @@ def create_reaction_db_file(
             fps_table.append(fps)
 
         fps_table.cols.popcnt.create_index(kind="full")
+
+        if store_strings and strings_map:
+            _write_string_arrays(fp_file, strings_map)
 
     if sort_by_popcnt:
         sort_db_file(filename)
@@ -237,6 +263,21 @@ def sort_db_file(filename: str) -> None:
         # update count ranges
         popcnt_bins = calc_popcnt_bins_pytables(dst_fps, fp_length)
         param_table.append(popcnt_bins)
+
+        # copy string lookup arrays unchanged (indexed by mol_id, not popcnt)
+        try:
+            sid = fp_file.root.string_ids[0]
+            strs = fp_file.root.strings[0]
+            new_sid = sorted_fp_file.create_vlarray(
+                sorted_fp_file.root, "string_ids", atom=tb.ObjectAtom()
+            )
+            new_sid.append(sid)
+            new_strs = sorted_fp_file.create_vlarray(
+                sorted_fp_file.root, "strings", atom=tb.ObjectAtom()
+            )
+            new_strs.append(strs)
+        except tb.NoSuchNodeError:
+            pass
 
     # remove unsorted file
     os.remove(tmp_filename)
@@ -363,6 +404,10 @@ class PyTablesStorageBackend(BaseStorageBackend):
         self.load_popcnt_bins(fps_sort)
         with tb.open_file(self.fp_filename, mode="r") as fp_file:
             self.chunk_size = fp_file.root.fps.chunkshape[0] * 120
+            try:
+                self.string_ids = fp_file.root.string_ids[0]
+            except tb.NoSuchNodeError:
+                self.string_ids = None
         if self.rdkit_ver != rdkit.__version__:
             print(
                 f"Warning: Database was created with RDKit version {self.rdkit_ver} but installed version is {rdkit.__version__}. "

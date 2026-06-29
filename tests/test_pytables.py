@@ -80,6 +80,37 @@ def test_create_db_file_list():
     assert fp_params["fpSize"] == FP_PARAMS["fpSize"]
     assert fpe.fps.shape[0] == 3
 
+def test_store_strings_smi():
+    in_file = os.path.join(TESTS_DIR, "data/10mols.smi")
+    out_file = os.path.join(TESTS_DIR, "data/10mols_strings.h5")
+    create_db_file(in_file, out_file, None, FP_TYPE, FP_PARAMS, store_strings=True)
+    fpe = FPSim2Engine(out_file)
+    assert fpe.storage.string_ids is not None
+    smiles = fpe.get_string(1)
+    assert isinstance(smiles, str) and len(smiles) > 0
+    os.remove(out_file)
+
+
+def test_store_strings_raises_without_flag():
+    in_file = os.path.join(TESTS_DIR, "data/10mols.smi")
+    out_file = os.path.join(TESTS_DIR, "data/10mols_nostrings.h5")
+    create_db_file(in_file, out_file, None, FP_TYPE, FP_PARAMS)
+    fpe = FPSim2Engine(out_file)
+    with pytest.raises(RuntimeError, match="store_strings"):
+        fpe.get_string(1)
+    os.remove(out_file)
+
+
+def test_store_strings_unknown_id_raises():
+    in_file = os.path.join(TESTS_DIR, "data/10mols.smi")
+    out_file = os.path.join(TESTS_DIR, "data/10mols_strings2.h5")
+    create_db_file(in_file, out_file, None, FP_TYPE, FP_PARAMS, store_strings=True)
+    fpe = FPSim2Engine(out_file)
+    with pytest.raises(KeyError):
+        fpe.get_string(9999)
+    os.remove(out_file)
+
+
 def test_create_db_file_bbs_sdf():
     in_file = os.path.join(TESTS_DIR, "data/bbs.sdf")
     out_file = os.path.join(TESTS_DIR, "data/bbs.h5")
