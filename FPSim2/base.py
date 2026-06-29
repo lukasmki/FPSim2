@@ -123,6 +123,43 @@ class BaseEngine(ABC):
             fp = build_fp(rdmol, self.fp_type, self.fp_params, 0)
         return np.array(fp, dtype=np.uint64)
 
+    def get_strings(self, mol_ids) -> list:
+        """Returns stored canonical SMILES or reaction SMARTS for an array of mol_ids.
+
+        Faster than calling get_string() in a loop: opens the HDF5 file once and
+        does a single vectorized index lookup. Accepts the structured array returned
+        by similarity/substructure searches directly.
+
+        Parameters
+        ----------
+        mol_ids : array-like or structured numpy array
+            Array of integer mol_ids, or the structured results array from a search
+            (with a 'mol_id' field).
+
+        Returns
+        -------
+        list of str
+            Canonical SMILES or reaction SMARTS in the same order as mol_ids.
+        """
+        if self.storage.string_ids is None:
+            raise RuntimeError(
+                "Database was not created with store_strings=True. "
+                "Recreate the database to enable string lookup."
+            )
+        ids = np.asarray(mol_ids)
+        if ids.dtype.names and "mol_id" in ids.dtype.names:
+            ids = ids["mol_id"]
+        ids = ids.astype(np.int64)
+        idxs = np.searchsorted(self.storage.string_ids, ids)
+        valid = (idxs < len(self.storage.string_ids)) & (
+            self.storage.string_ids[idxs] == ids
+        )
+        if not valid.all():
+            raise KeyError(f"mol_ids not found: {ids[~valid].tolist()}")
+        with tb.open_file(self.fp_filename, mode="r") as fp_file:
+            all_strings = fp_file.root.strings[0]
+        return [all_strings[i] for i in idxs]
+
     def get_string(self, mol_id: int) -> str:
         """Returns the stored canonical SMILES or reaction SMARTS for a given mol_id.
 
